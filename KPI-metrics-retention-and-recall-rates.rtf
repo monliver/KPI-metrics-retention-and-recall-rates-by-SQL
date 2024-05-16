@@ -1,0 +1,174 @@
+{\rtf1\ansi\ansicpg1252\cocoartf2761
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fnil\fcharset0 Menlo-Regular;\f1\fnil\fcharset134 PingFangSC-Regular;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red0\green0\blue0;\red70\green137\blue204;
+\red202\green202\blue202;\red212\green212\blue212;\red100\green117\blue135;\red251\green2\blue7;\red79\green123\blue61;
+\red251\green0\blue255;\red167\green197\blue152;\red212\green214\blue75;}
+{\*\expandedcolortbl;;\cssrgb\c0\c0\c0;\csgray\c0\c0;\cssrgb\c33725\c61176\c83922;
+\cssrgb\c83137\c83137\c83137;\cssrgb\c86275\c86275\c86275;\cssrgb\c46667\c53333\c60000;\cssrgb\c100000\c14913\c0;\cssrgb\c37647\c54510\c30588;
+\cssrgb\c100000\c0\c100000;\cssrgb\c70980\c80784\c65882;\cssrgb\c86275\c85882\c36471;}
+\paperw11900\paperh16840\margl1440\margr1440\vieww23020\viewh15200\viewkind0
+\deftab720
+\pard\pardeftab720\partightenfactor0
+
+\f0\fs28 \cf2 \cb3 \expnd0\expndtw0\kerning0
+WITH deliveryman_retained AS \
+(\
+SELECT  t1.*\
+        ,ttt1.last_recall_time\
+        ,ttt1.last_recall_date\
+        ,ttt1.last_recall_order_sn\
+        ,ttt1.recall_is_W1_retained\
+        ,ttt1.recall_is_W2_retained\
+FROM    (\
+           \cf8  \'97- 
+\f1 Deliveryman's first run retention decision
+\f0 \
+\cf2             SELECT  deliveryman_id\
+                    ,deliveryman_name\
+                    ,traffic_means    \
+                    ,country\
+                    ,city_name   \
+                    ,first_delivered_order_receive_time    \cf8 -- 
+\f1 First run time
+\f0 \
+\cf2                     ,substr(first_delivered_order_receive_time,1,10) first_delivered_order_receive_date\cf8     -- 
+\f1 First run date
+\f0 \
+\cf2                     ,if(\
+                        completed_order_num_2nd_day+completed_order_num_3rd_day+completed_order_num_4th_day+completed_order_num_5th_day+completed_order_num_6th_day+completed_order_num_7th_day+completed_order_num_8th_day>0\
+                        ,1\
+                        ,0\
+                    ) is_W1_retained\cf8     -- 
+\f1 Whether the first week of retention after the first run
+\f0 \
+\cf2                     ,if(\
+                        completed_order_num_2nd_day+completed_order_num_3rd_day+completed_order_num_4th_day+completed_order_num_5th_day+completed_order_num_6th_day+completed_order_num_7th_day+completed_order_num_8th_day>0 AND completed_order_num_9th_day+completed_order_num_10th_day+completed_order_num_11th_day+completed_order_num_12th_day+completed_order_num_13th_day+completed_order_num_14th_day+completed_order_num_15th_day>0\
+                        ,1\
+                        ,0\
+                    ) is_W2_retained\cf8     -- 
+\f1 Whether to stay for the second week after the first run
+\f0 \cf2 \
+            FROM    deliveryman\
+            WHERE   account_type = '
+\f1 Regular Account
+\f0 '\
+            OR      account_type IS NULL\
+        ) t1\
+LEFT join (\
+              -- 
+\f1 Retention after 14 days of recall
+\f0 \
+              SELECT  tt1.deliveryman_id\
+                      ,tt1.last_recall_time\
+                      ,tt1.last_recall_date\
+                      ,tt1.last_recall_order_sn\
+                      ,if(\
+                          sum(\
+                              CASE    WHEN DATEDIFF(to_date(tt2.stat_date),to_date(tt1.last_recall_date),'dd') <= 7 THEN tt2.delivered_order_num \
+                              END\
+                          ) >0\
+                          ,1\
+                          ,0\
+                      ) recall_is_W1_retained  \cf8  -- 
+\f1 Whether to stay after the first week of recall
+\f0 \cf2                       ,if(\
+                          sum(\
+                              CASE    WHEN DATEDIFF(to_date(tt2.stat_date),to_date(tt1.last_recall_date),'dd') <= 7 THEN tt2.delivered_order_num \
+                              END\
+                          ) >0 AND sum(CASE WHEN DATEDIFF(to_date(tt2.stat_date),to_date(tt1.last_recall_date),'dd') > 7 AND DATEDIFF(to_date(tt2.stat_date),to_date(tt1.last_recall_date),'dd') <= 14 THEN tt2.delivered_order_num END) >0\
+                          ,1\
+                          ,0\
+                      ) recall_is_W2_retained\cf8    -- 
+\f1 Whether the second week after the recall to stay
+\f0 \
+\cf2               FROM    (\
+                          \cf8 -- 
+\f1 The order receiving time and the previous order receiving time > 30 days, is a recall order, the rider is a recall rider
+\f0 \
+\cf2                           SELECT  t1.deliveryman_id\
+                                  ,max(t1.deliveryman_receive_order_time) last_recall_time\
+                                  ,substr(max(t1.deliveryman_receive_order_time),1,10) last_recall_date\
+                                  ,arg_max(t1.deliveryman_receive_order_time,t1.order_sn) last_recall_order_sn\
+                          FROM    (\
+                                      \cf8 -- 
+\f1 The time of this order and the time of the last order
+\f0 \cf2 \
+                                      SELECT  order_sn\
+                                              ,deliveryman_id\
+                                              ,deliveryman_receive_order_time\
+                                              ,lead(deliveryman_receive_order_time,1) over (PARTITION BY deliveryman_id ORDER BY deliveryman_receive_order_time DESC) before_deliveryman_receive_order_time\
+                                      FROM    order\
+                                      WHERE   delivery_type = '
+\f1 Deliveryman Dispatch
+\f0 '\
+                                      -- and   substr(delivered_time,1,10) = '2022-05-22'\
+                                      -- and   deliveryman_id = '575010'\
+                                      AND     delivered_time IS NOT NULL\
+                                  ) t1\
+                          WHERE   datediff(to_date(substr(t1.deliveryman_receive_order_time,1,10)), to_date(substr(t1.before_deliveryman_receive_order_time,1,10)) ,'dd') > 30    --
+\f1 This order taking time
+\f0 \
+                          GROUP BY t1.deliveryman_id\
+                      ) tt1\
+              LEFT JOIN deliveryman_daily tt2\
+              ON      tt1.deliveryman_id = tt2.deliveryman_id\
+              AND     tt2.stat_date > tt1.last_recall_date\
+              AND     DATEDIFF(to_date(tt2.stat_date),to_date(tt1.last_recall_date),'dd') <= 14\
+              GROUP BY tt1.deliveryman_id\
+                       ,tt1.last_recall_time\
+                       ,tt1.last_recall_date\
+                       ,tt1.last_recall_order_sn\
+          ) ttt1\
+ON      t1.deliveryman_id = ttt1.deliveryman_id\
+\
+)\
+\
+-- 
+\f1 \cf8 Retention of first run riders in the first 15 days
+\f0 \cf2 \
+SELECT \
+city_name\
+,COUNT(deliveryman_id) 
+\f1 Number of first run drivers
+\f0 \
+,COUNT(deliveryman_name) Number of retained drivers on 14 days\
+,"
+\f1 First run
+\f0 \'94 
+\f1 Category
+\f0 \
+from deliveryman_retained \
+where first_delivered_order_receive_date >= '2024-08-08'  \
+and   first_delivered_order_receive_date <= '2024-08-14'  --Data of the first 15 days\
+and   country = "AU"\
+and    (is_W2_retained = 1)\
+group by \
+city_name\
+\
+union all\
+\
+\cf8 -- 
+\f1 Retention of recalled riders in the first 15 days
+\f0 \cf2 \
+SELECT \
+city_name\
+,COUNT(deliveryman_id) 
+\f1 Number of first run drivers
+\f0 \
+,COUNT(deliveryman_name) Number of retained drivers on 14 days\
+,"
+\f1 Recall
+\f0 \'94\
+from deliveryman_retained \
+where last_recall_date >= '2024-08-04'  \
+and   last_recall_date <= '2024-08-14'\cf8    --
+\f1 Data of the first 15 days
+\f0 \cf2 \
+and   country = "AU"\
+and   (recall_is_W2_retained = 1)\
+group by \
+city_name\
+order by \
+city_name\
+;\
+}
