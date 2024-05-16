@@ -1,1 +1,2 @@
 # KPI-metrics-retention-and-recall-rates
+This project analyzes the retention of delivery drivers after their first run and after being recalled, using an SQL query. It calculates the number of retained drivers who stayed for two weeks after their first run and after being recalled, and groups and sorts the results by city. This query helps understand driver retention rates under different scenarios to optimize driver management strategies
